@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Search, Download, Loader, AlertCircle, CheckCircle2, Copy } from 'lucide-react';
 
 const API_BASE_URL = 'http://localhost:3000/api/v1';
+const API_BASE_URL_PROD = 'https://scraping-app.netlify.app/.netlify/functions/server/api/v1'; // URL de producción
 
 export default function ScrapingInterface() {
   const [formData, setFormData] = useState({
@@ -21,7 +22,7 @@ export default function ScrapingInterface() {
     setResults(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/scrape`, {
+      const response = await fetch(`${API_BASE_URL_PROD}/scrape`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
