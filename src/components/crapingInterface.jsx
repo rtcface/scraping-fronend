@@ -60,24 +60,43 @@ export default function ScrapingInterface() {
     }
   };
 
+  // Extrae la URL de la primera imagen del HTML
+  const extractImgUrl = (html) => {
+    if (!html) return '';
+    const match = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+    return match ? match[1] : '';
+  };
+
   const exportResults = () => {
     if (!results) return;
-    
+
     const dataToExport = {
       scraping_results: results.data.elements.map(item => {
         const cleaned = cleanText(item.text);
         const { referencia, contenido } = extractReference(cleaned);
-        const { producto, precioUno, precioDos } = splitProductPrice(contenido);
-        return { referencia, producto, precioUno, precioDos };
+        const { producto, precioUno } = splitProductPrice(contenido);
+        const imgUrl = extractImgUrl(item.html);
+
+        // Construye el objeto sin comillas en las claves
+        return {
+          id: referencia ? Number(referencia) : null,
+          nombre: producto,
+          precio: precioUno ? Number(precioUno.replace(/[^0-9.,]/g, '').replace(',', '.')) : null,
+          imagen: imgUrl
+        };
       }),
       metadata: results.metadata,
       total_items: results.data.count
     };
-    
-    const blob = new Blob([JSON.stringify(dataToExport, null, 2)], {
+
+    // Convierte a texto con claves sin comillas
+    const jsonString = JSON.stringify(dataToExport, null, 2)
+      .replace(/"(\w+)":/g, '$1:'); // quita comillas de las claves
+
+    const blob = new Blob([jsonString], {
       type: 'application/json'
     });
-    
+
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -250,13 +269,23 @@ export default function ScrapingInterface() {
               </h2>
               
               <button
-                onClick={() => copyToClipboard(JSON.stringify(
-                  results.data.elements.map(item => {
+                onClick={() => {
+                  const data = results.data.elements.map(item => {
                     const cleaned = cleanText(item.text);
                     const { referencia, contenido } = extractReference(cleaned);
-                    const { producto, precioUno, precioDos } = splitProductPrice(contenido);
-                    return { referencia, producto, precioUno, precioDos };
-                  }), null, 2))}
+                    const { producto, precioUno } = splitProductPrice(contenido);
+                    const imgUrl = extractImgUrl(item.html);
+                    return {
+                      id: referencia ? Number(referencia) : null,
+                      nombre: producto,
+                      precio: precioUno ? Number(precioUno.replace(/[^0-9.,]/g, '').replace(',', '.')) : null,
+                      imagen: imgUrl
+                    };
+                  });
+                  // Convierte a texto con claves sin comillas
+                  const jsonString = JSON.stringify(data, null, 2).replace(/"(\w+)":/g, '$1:');
+                  copyToClipboard(jsonString);
+                }}
                 className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
                   copied 
                     ? 'bg-green-100 text-green-700' 
@@ -273,12 +302,26 @@ export default function ScrapingInterface() {
                 const cleaned = cleanText(item.text);
                 const { referencia, contenido } = extractReference(cleaned);
                 const { producto, precioUno, precioDos } = splitProductPrice(contenido);
+                const imgUrl = extractImgUrl(item.html);
                 return (
                   <div
                     key={index}
                     className="bg-gray-50 rounded-xl p-4 border hover:bg-gray-100 transition-colors group"
                   >
                     <div className="flex items-start justify-between gap-4">
+                      {/* Columna de imagen */}
+                      <div className="flex-shrink-0 w-24 flex items-center justify-center">
+                        {imgUrl ? (
+                          <img
+                            src={imgUrl}
+                            alt={producto}
+                            className="w-20 h-20 object-contain rounded-lg border"
+                          />
+                        ) : (
+                          <span className="text-gray-400 text-xs">Sin imagen</span>
+                        )}
+                      </div>
+                      {/* Columna de datos */}
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
                           <span className="inline-flex items-center justify-center w-6 h-6 bg-primary-100 text-primary-700 text-xs font-semibold rounded-full">
@@ -300,8 +343,15 @@ export default function ScrapingInterface() {
                             <span className="font-semibold">Precio 2:</span> {precioDos}
                           </p>
                         )}
+                        <p className="text-gray-800 leading-relaxed text-sm mt-1">
+                          <span className="font-semibold">Imagen:</span>{' '}
+                          {imgUrl ? (
+                            <a href={imgUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
+                              {imgUrl}
+                            </a>
+                          ) : 'N/A'}
+                        </p>
                       </div>
-                      
                       <button
                         onClick={() => copyToClipboard(producto + (precioUno ? ' ' + precioUno : '') + (precioDos ? ' ' + precioDos : ''))}
                         className="opacity-0 group-hover:opacity-100 p-2 text-gray-400 hover:text-gray-600 transition-all"
